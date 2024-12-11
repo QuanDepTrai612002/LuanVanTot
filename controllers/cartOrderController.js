@@ -106,23 +106,36 @@ const removeAllFromOrder = async (req, res) => {
 
 const updateOrderItem = async (req, res) => {
     try {
-        const { cartItemId } = req.params;
-        const { count } = req.body;
+        const { cartItemId } = req.params; // Lấy cartItemId từ params
+        const { count } = req.body; // Lấy số lượng từ body
 
+        // Tìm mục giỏ hàng theo ID
         const cartItem = await CartOrder.findByPk(cartItemId);
 
         if (!cartItem) {
             return res.status(404).json({ error: 'Cart item not found' });
         }
 
+        // Lấy giá cơ bản của sản phẩm (giá cho một sản phẩm)
+        const basePrice = cartItem.price / cartItem.count;
+
+        // Cập nhật số lượng và giá mới
         cartItem.count = count;
-        await cartItem.save();
-        res.status(200).json(cartItem);
+        cartItem.price = basePrice * count; // Tính lại giá dựa trên số lượng
+
+        await cartItem.save(); // Lưu thay đổi vào cơ sở dữ liệu
+
+        // Trả về thông tin mục giỏ hàng đã cập nhật
+        res.status(200).json({
+            message: 'Cart item updated successfully.',
+            updatedCartItem: cartItem,
+        });
     } catch (error) {
         console.error('Error updating cart item:', error);
         res.status(500).json({ error: 'Error updating cart item' });
     }
 };
+
 
 const transferOrderToOrderStatus = async (req, res) => {
     const { number_table, product_id, account_id } = req.body;
@@ -151,7 +164,7 @@ const transferOrderToOrderStatus = async (req, res) => {
                         count: order.count,
                         price: order.price, 
                         product_name: order.product_name,
-                    },
+                    },  
                     { transaction: t }
                 )
             );

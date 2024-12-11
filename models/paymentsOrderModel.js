@@ -9,7 +9,7 @@ const PaymentOrder = sequelize.define(
             autoIncrement: true,
             primaryKey: true,
         },
-        order_id: {
+        bill_id: {
             type: DataTypes.INTEGER,
             allowNull: false,
         },
@@ -32,7 +32,7 @@ const PaymentOrder = sequelize.define(
         },
     },
     {
-        tableName: 'order_payments',
+        tableName: 'payments',
         timestamps: false,
     }
 );

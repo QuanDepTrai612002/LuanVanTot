@@ -5,4 +5,4 @@ const router = express.Router();
 router.get('/all', PaymentOrderController.getPayments); 
 router.post('/add', PaymentOrderController.createPayment);  
 
-module.exports = router;  
+module.exports = router; 

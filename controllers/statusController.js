@@ -1,6 +1,7 @@
 const Status = require('../models/statusModel'); 
 const WebSocket = require('../config/websocket'); 
 const sequelize = require('../config/database'); 
+const BillDetails = require('../models/billDetailsModel');
 
 const DEPARTMENTS = {
     EMPLOYEE: '1',
@@ -52,17 +53,13 @@ const OrderController = {
     },
     getOrderStatusByAccountId: async (req, res) => {
       const { account_id } = req.body;
-  
-      // Kiểm tra nếu account_id không được truyền vào
       if (!account_id) {
           return res.status(400).json({ message: "Thiếu account_id trong yêu cầu" });
       }
   
       try {
-          // Gọi phương thức từ model để lấy danh sách trạng thái theo account_id
           const result = await Status.getOrderStatusByAccountId(account_id);
   
-          // Kiểm tra nếu không tìm thấy bản ghi nào
           if (!result || result.length === 0) {
               return res.status(404).json({ message: `Không có trạng thái nào cho account_id = ${account_id}` });
           }
@@ -74,7 +71,31 @@ const OrderController = {
           res.status(500).json({ message: "Lỗi khi lấy trạng thái đơn hàng", error: err.message });
       }
   },
+  getStatusByTable: async (req, res) => {
+    const { number_table, status} = req.body;  // Nhận dữ liệu từ body
   
+    if (!number_table || !status) {
+      return res.status(400).json({ message: "Thiếu number_table hoặc status_name trong yêu cầu" });
+    }
+  
+    try {
+      const result = await Status.findAll({
+        where: {
+          number_table: number_table,
+          status: status  // Truy vấn với status_name
+        }
+      });
+  
+      if (!result || result.length === 0) {
+        return res.status(404).json({ message: `Không có trạng thái nào cho number_table = ${number_table} và status = ${status}` });
+      }
+  
+      res.status(200).json(result);
+    } catch (err) {
+      console.error("Lỗi lấy trạng thái:", err.message);
+      res.status(500).json({ message: "Lỗi khi lấy trạng thái", error: err.message });
+    }
+  },  
     // Thêm trạng thái mới từ bảng CartOrder hoặc Status
     addOrderStatusFromCartOrder: async (req, res) => {
         const { statusID, department, account_id } = req.body;
@@ -111,8 +132,6 @@ const OrderController = {
                     },
                     { transaction: t }
                 );
-
-                // Xóa bản ghi trong bảng Status
                 await statusOrder.destroy({ transaction: t });
             });
 
@@ -122,7 +141,67 @@ const OrderController = {
             res.status(500).json({ message: 'Đã xảy ra lỗi khi xử lý yêu cầu', error: error.message });
         }
     },
-    
+    transferStatusToBill: async (req, res) => {
+      const { number_table, status, account_id } = req.body;
+  
+      try {
+          // Kiểm tra dữ liệu đầu vào
+          if (!number_table || !status || !account_id) {
+              return res.status(400).json({ message: 'Vui lòng cung cấp đầy đủ thông tin: number_table, status, account_id.' });
+          }
+  
+          // Bắt đầu transaction
+          await sequelize.transaction(async (t) => {
+              // Lấy các đơn hàng từ bảng Status
+              const odstatus = await Status.findAll({
+                  where: { number_table, status, account_id },
+                  transaction: t,
+              });
+  
+              if (!odstatus.length) {
+                  throw new Error('Không tìm thấy đơn hàng nào để chuyển.');
+              }
+  
+              // Tạo danh sách các promise để chèn dữ liệu vào bảng Bill
+              const transferPromises = odstatus.map((order) =>
+                  BillDetails.create(
+                      {
+                          account_id: order.account_id,
+                          date: new Date(), // Thời gian hiện tại
+                          number_table: order.number_table,
+                          count: order.count,
+                          price: order.price,
+                          product_name: order.product_name,
+                          status: order.status, // Lấy từ `Status
+                      },
+                      { transaction: t }
+                  )
+              );
+  
+              // Chờ tất cả các bản ghi được tạo thành công
+              await Promise.all(transferPromises);
+  
+              // Xóa các bản ghi trong bảng Status
+              await Status.destroy({
+                  where: { number_table, status, account_id },
+                  transaction: t,
+              });
+          });
+  
+          // Phản hồi thành công
+          res.status(200).json({ message: 'Chuyển dữ liệu từ Status sang Bill thành công.' });
+      } catch (error) {
+          console.error('Error transferring data:', error.message);
+  
+          // Phân loại lỗi và trả về phản hồi thích hợp
+          if (error.message === 'Không tìm thấy đơn hàng nào để chuyển.') {
+              return res.status(404).json({ message: error.message });
+          }
+  
+          res.status(500).json({ message: 'Đã xảy ra lỗi khi xử lý yêu cầu.', error: error.message });
+      }
+  },
+  
 };
 
 module.exports = OrderController;
