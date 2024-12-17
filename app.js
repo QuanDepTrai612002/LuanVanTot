@@ -11,6 +11,7 @@ const orderRouter = require("./routers/cartOrderRouter");
 const paymentOrderRouter = require("./routers/paymentsRouter");
 const billRouter = require("./routers/billDetailsRouter")
 const billMainRouter = require("./routers/billmainRouter")
+const uploadRouter = require("./routers/uploadRouter");
 
 const app = express();
 app.use(cors());
@@ -25,6 +26,7 @@ app.use("/orders", orderRouter);
 app.use("/paymentOrder", paymentOrderRouter);
 app.use("/bill", billRouter);
 app.use("/billmain", billMainRouter);
+app.use("/images", uploadRouter);
 
 sequelize
   .authenticate()
