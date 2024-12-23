@@ -4,7 +4,6 @@ const { sequelize } = require("./models/index");
 
 const accountRouter = require("./routers/accountRouter");
 const productsRouter = require("./routers/productsRoutes");
-// const uploadRouters =  require("./routes/uploadRoute");
 const cartRouter = require("./routers/cartRouter");
 const statusRouter = require("./routers/statusRouter");
 const orderRouter = require("./routers/cartOrderRouter");
@@ -12,6 +11,7 @@ const paymentOrderRouter = require("./routers/paymentsRouter");
 const billRouter = require("./routers/billDetailsRouter")
 const billMainRouter = require("./routers/billmainRouter")
 const uploadRouter = require("./routers/uploadRouter");
+const addressRouter = require("./routers/addressRouter")
 
 const app = express();
 app.use(cors());
@@ -27,6 +27,7 @@ app.use("/paymentOrder", paymentOrderRouter);
 app.use("/bill", billRouter);
 app.use("/billmain", billMainRouter);
 app.use("/images", uploadRouter);
+app.use("/address", addressRouter);
 
 sequelize
   .authenticate()
