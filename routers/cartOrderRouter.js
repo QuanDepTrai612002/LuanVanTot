@@ -6,6 +6,7 @@ const orderController = require('../controllers/cartOrderController');
 router.post('/add-to-cart', orderController.addToOrder);
 router.get('/all', orderController.getAllOrder)
 
+
 // Get Cart Items by User ID
 router.get('/cart/:id', orderController.getOrderItemsByUserId);
 router.get('/table/:tableNumber', orderController.getOrderItemsByTableNumber);

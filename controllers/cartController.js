@@ -1,4 +1,7 @@
 const Cart = require('../models/cartModel');
+const History = require('../models/historyModel')
+const PaymentOnline = require('../models/paymentOnlineModel');
+const sequelize = require('../config/database');
 
 // Create a new cart item
 const addToCart = async (req, res) => {
@@ -65,6 +68,19 @@ const getCartItemsByUserId = async (req, res) => {
     res.status(500).json({ error: 'Error fetching cart items' });
   }
 };
+const getCartItemsByAccountId = async (req, res) => {
+  try {
+    const { account_id } = req.params; // Lấy account_id từ tham số đường dẫn
+    const cartItems = await Cart.findAll({
+      where: { account_id: account_id } // Sử dụng account_id trong điều kiện where
+    });
+    res.status(200).json(cartItems); // Trả về danh sách giỏ hàng
+  } catch (error) {
+    console.error('Error fetching cart items:', error);
+    res.status(500).json({ error: 'Error fetching cart items' }); // Nếu có lỗi, trả về lỗi
+  }
+};
+
 
 // Remove a cart item by ID
 const removeFromCart = async (req, res) => {
@@ -121,6 +137,83 @@ const updateCartItem = async (req, res) => {
       res.status(500).json({ error: 'Error updating cart item' });
     }
   };
+  const transferCartToPayment = async (req, res) => {
+    const { account_id, payment_method, payment_status, total_amount, cart_ids } = req.body;
+  
+    // Kiểm tra dữ liệu đầu vào
+    if (!account_id || !payment_method || !payment_status || !total_amount || !Array.isArray(cart_ids) || cart_ids.length === 0) {
+      return res.status(400).json({ message: 'Dữ liệu đầu vào không hợp lệ.' });
+    }
+  
+    try {
+      await sequelize.transaction(async (t) => {
+        // Loại bỏ các giá trị null hoặc undefined trong cart_ids
+        const validCartIds = cart_ids.filter((id) => id != null);
+  
+        if (validCartIds.length === 0) {
+          throw new Error('Dữ liệu giỏ hàng không hợp lệ.');
+        }
+  
+        // Lấy tất cả các sản phẩm trong giỏ hàng theo cart_ids và account_id
+        const cartItems = await Cart.findAll({
+          where: {
+            id: validCartIds,
+            account_id: account_id, // Đảm bảo chỉ lấy sản phẩm của tài khoản hiện tại
+          },
+          transaction: t,
+        });
+  
+        if (!cartItems.length) {
+          throw new Error('Không tìm thấy sản phẩm trong giỏ hàng để thanh toán.');
+        }
+  
+        // Tạo một bản ghi thanh toán mới
+        const payment = await PaymentOnline.create(
+          {
+            account_id,
+            payment_method,
+            payment_status,
+            total_amount,
+            payment_date: new Date(),
+          },
+          { transaction: t }
+        );
+  
+        // Lưu các sản phẩm vào bảng History
+        const transferPromises = cartItems.map((item) =>
+          History.create(
+            {
+              account_id,
+              product_id: item.product_id,
+              name: item.name,
+              img: item.img,
+              price: item.price,
+              count: item.count,
+              total_price: item.count * item.price,
+              order_date: new Date(),
+              status: payment_status,
+              payment_id: payment.id, // Liên kết với payment
+            },
+            { transaction: t }
+          )
+        );
+  
+        await Promise.all(transferPromises);
+  
+        // Xóa các sản phẩm trong Cart
+        await Cart.destroy({
+          where: { id: validCartIds },
+          transaction: t,
+        });
+      });
+  
+      res.status(200).json({ message: 'Thanh toán thành công và đã chuyển sang lịch sử.' });
+    } catch (error) {
+      console.error('Lỗi thanh toán:', error.message);
+      res.status(500).json({ message: 'Lỗi khi thanh toán', error: error.message });
+    }
+  };
+  
   
 module.exports = {
   getAllCart,
@@ -128,5 +221,7 @@ module.exports = {
   getCartItemsByUserId,
   removeFromCart,
   updateCartItem,
-  removeAllFromCart
+  removeAllFromCart,
+  getCartItemsByAccountId,
+  transferCartToPayment
 };
