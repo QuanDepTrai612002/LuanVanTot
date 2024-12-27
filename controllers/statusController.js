@@ -71,6 +71,51 @@ const OrderController = {
           res.status(500).json({ message: "Lỗi khi lấy trạng thái đơn hàng", error: err.message });
       }
   },
+  
+  getStatusReceived: async (req, res) => {
+    const { account_id } = req.body;
+
+    if (!account_id) {
+        return res.status(400).json({ message: 'Thiếu account_id trong yêu cầu.' });
+    }
+
+    try {
+        const result = await Status.findAll({
+            where: {
+                account_id: account_id,
+                status: 'Đã nhận', // Trạng thái "Đã nhận"
+            },
+        });
+
+        if (!result || result.length === 0) {
+            return res.status(404).json({ message: 'Không tìm thấy trạng thái nào là "Đã nhận".' });
+        }
+
+        res.status(200).json(result);
+    } catch (error) {
+        console.error('Lỗi lấy trạng thái "Đã nhận":', error.message);
+        res.status(500).json({ message: 'Lỗi khi lấy trạng thái "Đã nhận".', error: error.message });
+    }
+},
+
+
+  //Xoa don hang
+  deleteStatus: async (req, res) => {
+    const { id } = req.params;
+  
+    try {
+      const status = await Status.findByPk(id);
+  
+      if (!status) {
+        return res.status(404).send("That bai");
+      }
+      await status.destroy();
+      res.status(200).send("Xoa san pham thanh cong");
+    } catch (error) {
+      res.status(500).send(error.message);
+    }
+  },
+
   getStatusByTable: async (req, res) => {
     const { number_table, status} = req.body;  // Nhận dữ liệu từ body
   
