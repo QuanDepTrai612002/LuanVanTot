@@ -72,29 +72,33 @@ const OrderController = {
       }
   },
   
-  getStatusReceived: async (req, res) => {
-    const { account_id } = req.body;
+  getStatusKitchen: async (req, res) => {
+    const { account_id, status } = req.body; // Lấy `account_id` và `status` từ body
 
     if (!account_id) {
         return res.status(400).json({ message: 'Thiếu account_id trong yêu cầu.' });
     }
 
     try {
+        // Điều kiện lọc
+        const whereCondition = { account_id };
+
+        if (status) {
+            whereCondition.status = status; // Thêm điều kiện nếu `status` được truyền
+        }
+
         const result = await Status.findAll({
-            where: {
-                account_id: account_id,
-                status: 'Đã nhận', // Trạng thái "Đã nhận"
-            },
+            where: whereCondition,
         });
 
         if (!result || result.length === 0) {
-            return res.status(404).json({ message: 'Không tìm thấy trạng thái nào là "Đã nhận".' });
+            return res.status(404).json({ message: `Không tìm thấy trạng thái nào phù hợp với yêu cầu.` });
         }
 
         res.status(200).json(result);
     } catch (error) {
-        console.error('Lỗi lấy trạng thái "Đã nhận":', error.message);
-        res.status(500).json({ message: 'Lỗi khi lấy trạng thái "Đã nhận".', error: error.message });
+        console.error('Lỗi lấy trạng thái:', error.message);
+        res.status(500).json({ message: 'Lỗi khi lấy trạng thái.', error: error.message });
     }
 },
 

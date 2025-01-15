@@ -49,17 +49,10 @@ exports.Dangnhap = async (req, res) => {
 
 exports.createAccount = async (req, res) => {
   try {
-    const requiredFields = [
-      "name",
-      "email",
-      "phone_number",
-      "address",
-      "password",
-      "role"
-    ];
+    const requiredFields = ["name", "email", "phone_number", "address", "password"];
 
+    // Kiểm tra các trường bắt buộc
     const missingFields = requiredFields.filter(field => !req.body[field]);
-
     if (missingFields.length > 0) {
       return res.status(400).json({
         error: "Thiếu thông tin",
@@ -67,7 +60,7 @@ exports.createAccount = async (req, res) => {
       });
     }
 
-    const { email, password } = req.body;
+    const { name, email, phone_number, address, password, role = 0 } = req.body;
 
     // Kiểm tra định dạng email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -91,17 +84,29 @@ exports.createAccount = async (req, res) => {
         error: "Email đã tồn tại"
       });
     }
-
+    const existingName = await Account.findOne({ where: { name } });
+    if (existingName) {
+      return res.status(400).json({
+        error: "Name đã tồn tại"
+      });
+    }
     // Mã hóa mật khẩu
-    // const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // const userData = {
-    //   ...req.body,
-    //   password: hashedPassword,
-    // };
+    // Tạo dữ liệu tài khoản
+    const userData = {
+      name,
+      email,
+      phone_number,
+      address,
+      password,
+      // password: hashedPassword,
+      role
+    };
 
     // Tạo tài khoản mới
     const user = await Account.create(userData);
+
     res.status(201).json({
       message: "Tài khoản đã được tạo thành công",
       user: {
@@ -114,19 +119,38 @@ exports.createAccount = async (req, res) => {
       }
     });
   } catch (error) {
-    if (error.name === 'SequelizeValidationError') {
+    if (error.name === "SequelizeValidationError") {
       res.status(400).json({
         error: "Lỗi xác thực",
         details: error.errors.map(e => e.message)
       });
     } else {
       console.error("Error creating account:", error);
-      res.status(500).send("Có vấn đề trong việc tạo tài khoản");
+      res.status(500).json({
+        error: "Có vấn đề trong việc tạo tài khoản",
+        details: process.env.NODE_ENV === "development" ? error.message : undefined
+      });
     }
   }
 };
 
-
+//Theo Id
+exports.getAccountById = async (req, res) => {
+    const { id } = req.params;
+  
+    try {
+      const account = await Account.findByPk(id);
+  
+      if (!account) {
+        return res.status(404).send("Account not found");
+      }
+  
+      res.status(200).json(account);
+    } catch (error) {
+      res.status(500).send(error.message);
+    }
+  };
+  
 exports.deleteUser = async (req, res) => {
   try {
     const user = await Account.findByPk(req.params.id_user);

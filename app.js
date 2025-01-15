@@ -13,6 +13,8 @@ const billMainRouter = require("./routers/billmainRouter")
 const uploadRouter = require("./routers/uploadRouter");
 const addressRouter = require("./routers/addressRouter")
 const historyRouter = require("./routers/historyRouter")
+const categoryRouter = require("./routers/categoryRouter");
+const paymentOnline = require("./routers/paymentOnlineRouter")
 
 const app = express();
 app.use(cors());
@@ -30,6 +32,8 @@ app.use("/billmain", billMainRouter);
 app.use("/images", uploadRouter);
 app.use("/address", addressRouter);
 app.use("/history", historyRouter);
+app.use("/category", categoryRouter);
+app.use("/paymentOnline", paymentOnline);
 
 sequelize
   .authenticate()
