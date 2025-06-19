@@ -15,32 +15,41 @@ exports.getAllUsers = async (req, res) => {
 };
 exports.Dangnhap = async (req, res) => {
   try {
-    // Tìm người dùng trong cơ sở dữ liệu dựa trên tên (name)
     const user = await Account.findOne({ where: { name: req.body.name } });
 
     if (!user) {
-      return res.status(404).send("Nguoi dung không tồn tại");
+      return res.status(404).send("Người dùng không tồn tại");
     }
 
-    // Kiểm tra mật khẩu người dùng
     if (req.body.password != user.dataValues.password) {
       return res.status(401).send({ auth: false, token: null });
     }
 
-    // Tạo mã token, bao gồm id và role
     const token = jwt.sign(
       { 
         id: user.id, 
-        role: user.dataValues.role  // Thêm role vào payload của token
+        role: user.dataValues.role
       },
       secret,
-      {
-        expiresIn: '24h'  // Token có hiệu lực trong 24 giờ
-      }
+      { expiresIn: '24h' }
     );
 
     // Trả về token trong phản hồi
     res.status(200).json({ auth: true, token, role: user.dataValues.role });
+
+    // Trả về đầy đủ thông tin user
+    res.status(200).json({ 
+      auth: true, 
+      token, 
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone_number: user.phone_number,
+        address: user.address,
+        role: user.dataValues.role
+      }
+    });
   } catch (e) {
     console.log(e);
     res.status(500).send('Có vấn đề trong quá trình đăng nhập');
@@ -151,39 +160,84 @@ exports.getAccountById = async (req, res) => {
     }
   };
   
-exports.deleteUser = async (req, res) => {
+  exports.deleteUser = async (req, res) => {
+    try {
+      const user = await Account.findByPk(req.params.id_user);
+      if (!user) {
+        return res.status(404).send("User not found");
+      }
+  
+      // Kiểm tra nếu role của user là 4 thì không cho phép xóa
+      if (user.role === 4) {
+        return res.status(403).send("Không thể xóa người dùng với vai trò này");
+      }
+  
+      await user.destroy();
+      res.status(200).send("User deleted successfully");
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).send("Có vấn đề trong việc xóa người dùng");
+    }
+  };
+
+  exports.updateUser = async (req, res) => {
+    try {
+      const user = await Account.findByPk(req.params.id_user);
+      if (!user) {
+        return res.status(404).send("User not found");
+      }
+  
+      // Kiểm tra nếu role của người dùng là 4 thì không cho phép sửa
+      if (user.role === 4) {
+        return res.status(403).send("Không thể sửa thông tin người dùng với role 4");
+      }
+  
+      const { name, password, role } = req.body;
+  
+      if (password) {
+        user.password = await bcrypt.hash(password, 10);
+      }
+      user.name = name || user.name;
+      user.role = role || user.role;
+  
+      await user.save();
+      res.status(200).json(user);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).send("Có vấn đề trong việc cập nhật người dùng");
+    }
+  };
+  
+exports.updatePassword = async (req, res) => {
   try {
-    const user = await Account.findByPk(req.params.id_user);
+    const { id } = req.params; // Lấy ID người dùng từ params
+    const { currentPassword, newPassword } = req.body; // Lấy mật khẩu hiện tại và mật khẩu mới từ body
+
+    // Kiểm tra xem người dùng có tồn tại không
+    const user = await Account.findByPk(id);
     if (!user) {
-      return res.status(404).send("User not found");
-    }
-    await user.destroy();
-    res.status(200).send("User deleted successfully");
-  } catch (error) {
-    console.error("Error deleting user:", error);
-    res.status(500).send("Có vấn đề trong việc xóa người dùng");
-  }
-};
-
-exports.updateUser = async (req, res) => {
-  try {
-    const user = await Account.findByPk(req.params.id_user);
-    if (!user) {
-      return res.status(404).send("User not found");
+      return res.status(404).send("Người dùng không tồn tại");
     }
 
-    const { name, password, role } = req.body;
-    if (password) {
-      user.password = await bcrypt.hash(password, 10);
+    // Kiểm tra mật khẩu hiện tại có đúng không
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isPasswordValid) {
+      return res.status(400).send("Mật khẩu hiện tại không đúng");
     }
-    user.name = name || user.name;
-    user.role = role || user.role;
 
+    // Kiểm tra mật khẩu mới có hợp lệ không
+    if (!newPassword || newPassword.trim() === "") {
+      return res.status(400).send("Mật khẩu mới không được để trống");
+    }
+
+    // Cập nhật mật khẩu mới
+    user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
-    res.status(200).json(user);
+
+    res.status(200).send("Đổi mật khẩu thành công");
   } catch (error) {
-    console.error("Error updating user:", error);
-    res.status(500).send("Có vấn đề trong việc cập nhật người dùng");
+    console.error("Error updating password:", error);
+    res.status(500).send("Có vấn đề trong việc đổi mật khẩu");
   }
   
 };
