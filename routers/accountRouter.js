@@ -8,5 +8,6 @@ router.post("/create", AccountController.createAccount);
 router.delete("/:id_user", AccountController.deleteUser);
 router.put("/:id_user", AccountController.updateUser);
 router.post("/login", AccountController.Dangnhap);
+router.put("/password/:id", AccountController.updatePassword);
 
 module.exports = router;

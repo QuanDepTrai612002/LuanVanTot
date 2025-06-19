@@ -40,7 +40,7 @@ exports.Dangnhap = async (req, res) => {
     );
 
     // Trả về token trong phản hồi
-    res.status(200).json({ auth: true, token });
+    res.status(200).json({ auth: true, token, role: user.dataValues.role });
   } catch (e) {
     console.log(e);
     res.status(500).send('Có vấn đề trong quá trình đăng nhập');
@@ -184,5 +184,39 @@ exports.updateUser = async (req, res) => {
   } catch (error) {
     console.error("Error updating user:", error);
     res.status(500).send("Có vấn đề trong việc cập nhật người dùng");
+  }
+  
+};
+
+exports.updatePassword = async (req, res) => {
+  try {
+    const { id } = req.params; // Lấy ID người dùng từ params
+    const { currentPassword, newPassword } = req.body; // Lấy mật khẩu hiện tại và mật khẩu mới từ body
+
+    // Kiểm tra xem người dùng có tồn tại không
+    const user = await Account.findByPk(id);
+    if (!user) {
+      return res.status(404).send("Người dùng không tồn tại");
+    }
+
+    // Kiểm tra mật khẩu hiện tại có đúng không
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isPasswordValid) {
+      return res.status(400).send("Mật khẩu hiện tại không đúng");
+    }
+
+    // Kiểm tra mật khẩu mới có hợp lệ không
+    if (!newPassword || newPassword.trim() === "") {
+      return res.status(400).send("Mật khẩu mới không được để trống");
+    }
+
+    // Cập nhật mật khẩu mới
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.status(200).send("Đổi mật khẩu thành công");
+  } catch (error) {
+    console.error("Error updating password:", error);
+    res.status(500).send("Có vấn đề trong việc đổi mật khẩu");
   }
 };
